@@ -40,8 +40,6 @@ float remainAc=0.0;
 
 //order存储所有需要发送的功能指令，一共11个，其中绝缘信号暂时不知道，使用零序电流代替
 unsigned int order[11] = {0x00C0,0x00C2,0x00C4,0x0064,0x0066,0x0068,0x0074,0x0076,0x0078,0x007C,0x007C};
-//控制当前执行到的命令索引
-int currentAddre = 0;
 //控制当前执行到的命令
 int currentOrrder = 0;
 //地址表长度和内容的定义，地址索引的定义，以及地址的赋值
@@ -425,20 +423,20 @@ void MainWindow::updata_content(){
     for(int id=0;id<maxnum;++id){
         auto TextEdit = findChild<mytextedit *>(QString::number(id));
         TextEdit->showContent(QString("位置:%1").arg((int) cont[id][0]));
-        TextEdit->append(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
-//        auto cur_text_color = TextEdit->textColor();
-//        if(0==0){
-//            // 设置当前行要使用的颜色，假设为红色
-//            TextEdit->setTextColor(Qt::red);
-//            TextEdit->append(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
-//        }
-//        // 最后恢复原来的颜色
-//        TextEdit->setTextColor(cur_text_color);
+        TextEdit->showContent(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
+        auto cur_text_color = TextEdit->textColor();
+        if(0==0){
+            // 设置当前行要使用的颜色，假设为红色
+            TextEdit->setTextColor(Qt::red);
+            TextEdit->showContent(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
+        }
+        // 最后恢复原来的颜色
+        TextEdit->setTextColor(cur_text_color);
 
-        TextEdit->append(QString("电压(V):%5,%6,%7").arg((int) cont[id][4]).arg((int) cont[id][5]).arg((int) cont[id][6]));
-        TextEdit->append(QString("电流(A):%8,%9,%10").arg((int) cont[id][7]).arg((int) cont[id][8]).arg((int) cont[id][9]));
-        TextEdit->append(QString("漏电电流(A):%11").arg((int) cont[id][10]));
-        TextEdit->append(QString("绝缘信号:%12").arg((int) cont[id][11]));
+        TextEdit->showContent(QString("电压(V):%5,%6,%7").arg((int) cont[id][4]).arg((int) cont[id][5]).arg((int) cont[id][6]));
+        TextEdit->showContent(QString("电流(A):%8,%9,%10").arg((int) cont[id][7]).arg((int) cont[id][8]).arg((int) cont[id][9]));
+        TextEdit->showContent(QString("漏电电流(A):%11").arg((int) cont[id][10]));
+        TextEdit->showContent(QString("绝缘信号:%12").arg((int) cont[id][11]));
 
 
 //        TextEdit->setText(QString("位置:%1\n温度(C):%2,%3,%4\n电压(V):%5,%6,%7\n电流(A):%8,%9,%10\n漏电电流(A)%11\n绝缘信号:%12").arg((int) cont[id][0])\
