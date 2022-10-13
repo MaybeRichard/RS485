@@ -17,7 +17,7 @@
 #include <QTime>
 #include <QModbusRtuSerialMaster>
 #include <QThread>
-
+#include <windows.h>
 //存储当前传输的协议
 unsigned int startAdd;
 
@@ -60,7 +60,7 @@ MainWindow::MainWindow(QWidget *parent)
 //    readData();
     MainWindow::updata_content();
     QTimer *timer = new QTimer(this);
-    timer->start(50000);
+    timer->start(10000);
     connect(timer, SIGNAL(timeout()), this, SLOT(readData()));
 
 }
@@ -168,8 +168,8 @@ void MainWindow::Initserial()
 
         //再设置从机无响应时的动作*******************************
         qDebug()<<"Check Device Responsd Time";
-        modbustoolDevice->setTimeout(5000);//从设备回复信息的超时时间
-        modbustoolDevice->setNumberOfRetries(0);//重复发送次数
+        modbustoolDevice->setTimeout(100);//从设备回复信息的超时时间
+        modbustoolDevice->setNumberOfRetries(1);//重复发送次数
 
         //开始连接串口，并判断连接状态
         if (!modbustoolDevice->connectDevice()) {
@@ -202,7 +202,6 @@ void MainWindow::readData()
 //    qDebug()<<"当前地址"<<addr;
     //每个地址的第一个协议都是通过readData来调用，之后的协议在decode中调用，每次调用后都把当前的命令索引(currentOrrder)+1
     readfromclient(0x00C0,0x02);
-    currentOrrder++;
     MainWindow::updata_content();
 }
 
@@ -280,6 +279,26 @@ void MainWindow::readReady()
     } else {
         //如果响应数据校验后，有错误，更新状态栏显示错误码
         qDebug()<<"readReady部分校验出错"<<reply->errorString();
+        currentOrrder++;
+        if(currentOrrder>=1&&currentOrrder<=10){
+    //        qDebug()<<"sending Order"<<binaryTransfer(order[currentOrrder]);
+            readfromclient(order[currentOrrder],0x02);
+        }else{
+            readfromclient(order[currentOrrder],0x02);
+            currentOrrder=0;
+            qDebug()<<"dang qian zhi xing xu hao:"<<currentOrrder;
+            qDebug()<<"dang qian di zhi:"<<addrIndex;
+            qDebug()<<"cuowu";
+            addrIndex++;
+            if(addrIndex>=6)
+            {
+                Sleep(5000);
+                addrIndex=0;
+            }
+
+            readData();
+            //判断地址是否循环到表的最后，如果到了最后则回到初始位置重新开始
+        }
     }
     //结束响应过程
     reply->deleteLater();
@@ -368,16 +387,22 @@ void MainWindow::decode(QString result,int address)
     cont[address-1][11]=0;//绝缘信号暂无
     //当前指令执行完成，返回并执行下一个
     qDebug()<<"currentOrrder:"<<currentOrrder;
+    currentOrrder++;
     if(currentOrrder>=1&&currentOrrder<=10){
-//        qDebug()<<"sending Order"<<binaryTransfer(order[currentOrrder]);
+        qDebug()<<"current Order"<<currentOrrder;
         readfromclient(order[currentOrrder],0x02);
-        currentOrrder++;
-    }else if(currentOrrder==11){
-        readfromclient(order[currentOrrder],0x02);
-        //判断地址是否循环到表的最后，如果到了最后则回到初始位置重新开始
+
     }else{
+        readfromclient(order[currentOrrder],0x02);
         currentOrrder=0;
+        addrIndex++;
+        if(addrIndex>=6)
+        {
+            Sleep(5000);
+            addrIndex=0;
+        }
         readData();
+        //判断地址是否循环到表的最后，如果到了最后则回到初始位置重新开始
     }
 }
 
@@ -399,20 +424,23 @@ void MainWindow::updata_content(){
 //    TextEdit->setText(QString::number(300));
     for(int id=0;id<maxnum;++id){
         auto TextEdit = findChild<mytextedit *>(QString::number(id));
-        TextEdit->setText(QString("位置:%1").arg((int) cont[id][0]));
-        auto cur_text_color = TextEdit->textColor();
-        if(0==0){
-            // 设置当前行要使用的颜色，假设为红色
-            TextEdit->setTextColor(Qt::red);
-            TextEdit->append(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
-        }
-        // 最后恢复原来的颜色
-        TextEdit->setTextColor(cur_text_color);
+        TextEdit->showContent(QString("位置:%1").arg((int) cont[id][0]));
+        TextEdit->append(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
+//        auto cur_text_color = TextEdit->textColor();
+//        if(0==0){
+//            // 设置当前行要使用的颜色，假设为红色
+//            TextEdit->setTextColor(Qt::red);
+//            TextEdit->append(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
+//        }
+//        // 最后恢复原来的颜色
+//        TextEdit->setTextColor(cur_text_color);
 
         TextEdit->append(QString("电压(V):%5,%6,%7").arg((int) cont[id][4]).arg((int) cont[id][5]).arg((int) cont[id][6]));
         TextEdit->append(QString("电流(A):%8,%9,%10").arg((int) cont[id][7]).arg((int) cont[id][8]).arg((int) cont[id][9]));
         TextEdit->append(QString("漏电电流(A):%11").arg((int) cont[id][10]));
         TextEdit->append(QString("绝缘信号:%12").arg((int) cont[id][11]));
+
+
 //        TextEdit->setText(QString("位置:%1\n温度(C):%2,%3,%4\n电压(V):%5,%6,%7\n电流(A):%8,%9,%10\n漏电电流(A)%11\n绝缘信号:%12").arg((int) cont[id][0])\
 //           .arg(cont[id][1]).arg(cont[id][2]).arg(cont[id][3]).arg(cont[id][4]).arg(cont[id][5]).arg(cont[id][6]).arg(cont[id][7])\
 //           .arg(cont[id][8]).arg(cont[id][9]).arg(cont[id][10]).arg(cont[id][11]));
