@@ -18,6 +18,7 @@
 #include <QModbusRtuSerialMaster>
 #include <QThread>
 #include <windows.h>
+
 //存储当前传输的协议
 unsigned int startAdd;
 
@@ -37,11 +38,11 @@ float ThirdTemp=0.0;
 //剩余/漏电/零序电流
 float remainAc=0.0;
 
-
 //order存储所有需要发送的功能指令，一共11个，其中绝缘信号暂时不知道，使用零序电流代替
 unsigned int order[11] = {0x00C0,0x00C2,0x00C4,0x0064,0x0066,0x0068,0x0074,0x0076,0x0078,0x007C,0x007C};
 //控制当前执行到的命令
 int currentOrrder = 0;
+
 //地址表长度和内容的定义，地址索引的定义，以及地址的赋值
 unsigned int Address[6]={1,2,3,4,5,6};
 unsigned int addrIndex = 0;
@@ -55,8 +56,8 @@ MainWindow::MainWindow(QWidget *parent)
     Initserial();
     signalMapper = new QSignalMapper(this);
     InitUi();
-//    readData();
     MainWindow::updata_content();
+    //restart every timer ms
     QTimer *timer = new QTimer(this);
     timer->start(10000);
     connect(timer, SIGNAL(timeout()), this, SLOT(readData()));
@@ -70,24 +71,13 @@ MainWindow::~MainWindow()
 
 void MainWindow::show_detial(QString name){
     int id =name.toInt();
-////    QMessageBox::question(this,
-//           tr("弹窗标题"),
-//           tr("弹窗内容:\n温度:%d \n温度:%d \n电压:%d ",(1,2,3)),
-//           QMessageBox::Ok | QMessageBox::Cancel,
-//           QMessageBox::Ok);
+    auto TextEdit = findChild<mytextedit *>(QString::number(id));
     QMessageBox::information(NULL,  "信息",
-tr("位置:%1\n温度(C):%2.2f,%3f,%4\n电压(V):%5,%6,%7\n电流(A):%8,%9,%10\n漏电电流(V)%11\n绝缘信号:%12").arg(cont[id][0])\
-   .arg(cont[id][1]).arg(cont[id][2]).arg(cont[id][3]).arg(cont[id][4]).arg(cont[id][5]).arg(cont[id][6]).arg(cont[id][7])\
-   .arg(cont[id][8]).arg(cont[id][9]).arg(cont[id][10]).arg(cont[id][11]),
+tr("位置:%1\n温度(C):%2,%3,%4\n电压(V):%5,%6,%7\n电流(A):%8,%9,%10\n漏电电流(V)%11\n绝缘信号:%12").arg(cont[id][0])\
+   .arg(QString::number((cont[id][1]),'f',2)).arg(QString::number((cont[id][2]),'f',2)).arg(QString::number((cont[id][3]),'f',2)).arg(QString::number((cont[id][4]),'f',2)).arg(QString::number((cont[id][5]),'f',2)).arg(QString::number((cont[id][7]),'f',2)).arg(QString::number((cont[id][8]),'f',2))\
+   .arg(QString::number((cont[id][8]),'f',2)).arg(QString::number((cont[id][9]),'f',2)).arg(QString::number((cont[id][10]),'f',2)).arg(QString::number((cont[id][11]),'f',2)),
                              QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 }
-
-//void MainWindow::Initserial(){
-////    QPushButton *btn=new QPushButton(this);
-//    mylineedit *btn=new mylineedit(this);
-//    btn->setText("on");
-//    btn->move(0,0);
-//}
 
 void MainWindow::InitUi()
 {
@@ -166,21 +156,15 @@ void MainWindow::Initserial()
 
         //再设置从机无响应时的动作*******************************
         qDebug()<<"Check Device Responsd Time";
-        modbustoolDevice->setTimeout(100);//从设备回复信息的超时时间
-        modbustoolDevice->setNumberOfRetries(1);//重复发送次数
+        modbustoolDevice->setTimeout(150);//从设备回复信息的超时时间
+        modbustoolDevice->setNumberOfRetries(0);//重复发送次数
 
         //开始连接串口，并判断连接状态
         if (!modbustoolDevice->connectDevice()) {
             //如果连接失败，提示
             qDebug()<<"连接失败";
-//            statusBar()->showMessage(tr("连接失败: ") + modbustoolDevice->errorString(), 5000);
-            //FlagGetStatus=0;//连接失败，停止定时刷新
-            //ui->Status_SerialConnect->setStyleSheet("font-size:100px;border-radius:30px;\nbackground-color: red");
+
         }else{
-            //如果连接成功，设置下面按钮的状态，同时给出提示
-//                ui->modbus_connect->setEnabled(false);
-//                ui->modbus_disconnect->setEnabled(true);
-//                ui->send_commander->setEnabled(true);
 
             statusBar()->showMessage(tr("连接成功!"), 5000);
             //FlagGetStatus=1;//连接成功，定时刷新
@@ -195,33 +179,44 @@ void MainWindow::Initserial()
 
 void MainWindow::readData()
 {
-    qDebug()<<"1";
-    addr=Address[addrIndex];
+
 //    qDebug()<<"当前地址"<<addr;
     //每个地址的第一个协议都是通过readData来调用，之后的协议在decode中调用，每次调用后都把当前的命令索引(currentOrrder)+1
-    readfromclient(0x00C0,0x02);
-    MainWindow::updata_content();
+    for(int i=0;i<1;i++){
+        addr=Address[i];
+        for(int j=0;j<11;j++){
+            //  地址的赋值
+            readfromclient(order[j],0x02);
+            qDebug()<<"one order sent!";
+            QEventLoop eventloop;
+            QTimer::singleShot(5000, &eventloop, SLOT(quit()));
+            eventloop.exec();
+            MainWindow::updata_content();
+        }
+    }
+
+//    MainWindow::updata_content();
 }
 
 // startAddress：协议中的地址表
 void MainWindow::readfromclient(unsigned int startAddress,int number)
 {
     qDebug()<<2;
-//    qDebug()<<"readfromclient协议"<<binaryTransfer(startAddress);
-//    qDebug()<<"readfromclient地址"<<addr;
+    qDebug()<<"readfromclient协议"<<binaryTransfer(startAddress);
+    qDebug()<<"readfromclient地址"<<addr;
+//将当前执行的指令存储到全局变量startAdd中，方便其他函数调用和实时查看当前执行状态
     startAdd=startAddress;
     //如果没有定义modbus串口，直接返回
     if (!modbustoolDevice)
         return;
     QModbusDataUnit readUnit(QModbusDataUnit::HoldingRegisters,startAddress,number);
     //发送Modbus格式的数据到从机地址为serverAddress的从机，读取相应的数据
-      unsigned int serverAddress=addr;
+    unsigned int serverAddress=addr;
     if (auto *reply = modbustoolDevice->sendReadRequest(readUnit, serverAddress)) {
         //再设置从机无响应时的动作*******************************
         if (!reply->isFinished()){
             qDebug()<<3;
-//            qDebug()<<"readfromclient中有Reply，即将进入readReady";
-
+            qDebug()<<"readfromclient中有Reply，即将进入readReady";
             connect(reply, &QModbusReply::finished, this, &MainWindow::readReady);
         }
         else
@@ -243,65 +238,57 @@ void MainWindow::readfromclient(unsigned int startAddress,int number)
 void MainWindow::readReady()
 {
     qDebug()<<4;
-//    qDebug () <<"进入ReadReady";
+    qDebug () <<"进入ReadReady";
     //reply: 回应状态 result: 存储解码数据
     auto reply = qobject_cast<QModbusReply *>(sender());
     QString result;
      //如果没有响应数据，直接返回
     if (!reply)
     {
-//        qDebug()<<"readReady没有响应";
+//        qDebug()<<"readReady函数内没有响应";
         return;
     }
     if (reply->error() == QModbusDevice::NoError) {
         //如果响应数据校验后，没有错误。解析数据
         qDebug()<<5;
-//        qDebug()<<"ReadReady校验正常";
+        qDebug()<<"ReadReady校验正常";
         const QModbusDataUnit unit = reply->result();
-        QString showdata=tr("总数:%1 值为:").arg(unit.valueCount());
+        QString showdata=tr("").arg(unit.valueCount());
         for (uint i = 0; i < unit.valueCount(); i++) {
             const QString entry=tr("%1").arg(unit.value(i));
             showdata=showdata+entry;
             result+=binaryTransfer(unit.value(i));
         }
         int address = reply->serverAddress();
-//        qDebug()<<"命令"<<binaryTransfer(startAdd)<<"进入decode";
+        qDebug()<<"命令"<<binaryTransfer(startAdd)<<"进入decode";
         decode(result,address);
-
     } else if (reply->error() == QModbusDevice::ProtocolError) {
         //如果响应数据校验后，有协议错误，更新状态栏显示错误码
-        qDebug()<<"readReady部分协议出错";
-        statusBar()->showMessage(tr("读取回应错误: %1 (Mobus exception: 0x%2)").
-                                 arg(reply->errorString()).
-                                 arg(reply->rawResult().exceptionCode(), -1, 16), 5000);
-    } else {
+        qDebug()<<"readReady:ProtocolError";
+    } else if(reply->error()==QModbusDevice::ReadError) {
         //如果响应数据校验后，有错误，更新状态栏显示错误码
-        qDebug()<<"readReady部分校验出错"<<reply->errorString();
-        currentOrrder++;
-        if(currentOrrder>=1&&currentOrrder<=10){
-    //        qDebug()<<"sending Order"<<binaryTransfer(order[currentOrrder]);
-            readfromclient(order[currentOrrder],0x02);
-        }else{
-            readfromclient(order[currentOrrder],0x02);
-            currentOrrder=0;
-            qDebug()<<"dang qian zhi xing xu hao:"<<currentOrrder;
-            qDebug()<<"dang qian di zhi:"<<addrIndex;
-            qDebug()<<"cuowu";
-            addrIndex++;
-            if(addrIndex>=6)
-            {
-                Sleep(5000);
-                addrIndex=0;
-            }
-
-            readData();
-            //判断地址是否循环到表的最后，如果到了最后则回到初始位置重新开始
-        }
+        qDebug()<<"readReady:ReadError"<<reply->errorString();
+    } else if(reply->error()==QModbusDevice::WriteError) {
+    //如果响应数据校验后，有错误，更新状态栏显示错误码
+        qDebug()<<"readReady:WriteError"<<reply->errorString();
+    } else if(reply->error()==QModbusDevice::ConnectionError) {
+    //如果响应数据校验后，有错误，更新状态栏显示错误码
+        qDebug()<<"readReady:ConnectionError"<<reply->errorString();
+    } else if(reply->error()==QModbusDevice::ConfigurationError) {
+    //如果响应数据校验后，有错误，更新状态栏显示错误码
+        qDebug()<<"readReady:ConfigurationError"<<reply->errorString();
+    }else if(reply->error()==QModbusDevice::TimeoutError) {
+    //如果响应数据校验后，有错误，更新状态栏显示错误码
+        qDebug()<<"readReady:TimeoutError"<<reply->errorString();
+    }else if(reply->error()==QModbusDevice::ReplyAbortedError) {
+    //如果响应数据校验后，有错误，更新状态栏显示错误码
+        qDebug()<<"readReady:ReplyAbortedError"<<reply->errorString();
+    }else{
+        qDebug()<<"readReady:UnknowError"<<reply->errorString();
     }
     //结束响应过程
     reply->deleteLater();
 }
-
 QString MainWindow::binaryTransfer(int data)
 {
     //转化为16进制
@@ -315,9 +302,10 @@ QString MainWindow::binaryTransfer(int data)
 void MainWindow::decode(QString result,int address)
 {
     qDebug()<<6;
-//    qDebug()<<"进入decode";
+    qDebug()<<"进入decode";
     QString temp= binaryTransfer(startAdd);
-//    qDebug()<<"协议"<<temp;
+    qDebug()<<"协议"<<temp;
+    qDebug()<<result;
     if(temp=="00c0"){
         //1线温度
         FirstTemp = fromFourToFloat(result);
@@ -342,12 +330,12 @@ void MainWindow::decode(QString result,int address)
     if(temp=="0066"){
         //线电压Ubc
         Ubc = fromFourToFloat(result);
-        qDebug()<<"线电压Uab:"<<fromFourToFloat(result);
+        qDebug()<<"线电压Uac:"<<fromFourToFloat(result);
     }
     if(temp=="0068"){
         //线电压Uca
         Uca = fromFourToFloat(result);
-        qDebug()<<"线电压Uab:"<<fromFourToFloat(result);
+        qDebug()<<"线电压Ubc:"<<fromFourToFloat(result);
     }
     if(temp=="0074"){
         //线电流Ia
@@ -384,24 +372,6 @@ void MainWindow::decode(QString result,int address)
     cont[address-1][10]=remainAc;//漏电电流信息暂无
     cont[address-1][11]=0;//绝缘信号暂无
     //当前指令执行完成，返回并执行下一个
-    qDebug()<<"currentOrrder:"<<currentOrrder;
-    currentOrrder++;
-    if(currentOrrder>=1&&currentOrrder<=10){
-        qDebug()<<"current Order"<<currentOrrder;
-        readfromclient(order[currentOrrder],0x02);
-
-    }else{
-        readfromclient(order[currentOrrder],0x02);
-        currentOrrder=0;
-        addrIndex++;
-        if(addrIndex>=6)
-        {
-            Sleep(5000);
-            addrIndex=0;
-        }
-        readData();
-        //判断地址是否循环到表的最后，如果到了最后则回到初始位置重新开始
-    }
 }
 
 /*
@@ -410,33 +380,77 @@ void MainWindow::decode(QString result,int address)
  */
 float MainWindow::fromFourToFloat(QString result){
     uint hex_uint = result.toUInt(nullptr, 16);
-
     float hex_res = *(float*)&hex_uint;
-
     return hex_res;
 }
 
-
 void MainWindow::updata_content(){
-//    auto TextEdit = findChild<mytextedit *>(name);
-//    TextEdit->setText(QString::number(300));
+    // 记录电机在线/离线状态
+    int status=0;
     for(int id=0;id<maxnum;++id){
         auto TextEdit = findChild<mytextedit *>(QString::number(id));
-        TextEdit->showContent(QString("位置:%1").arg((int) cont[id][0]));
-        TextEdit->showContent(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
+        //根据数据存在的个数来判断在线/离线
+        if(cont[id][1]==0 && cont[id][2]==0 && cont[id][3]==0 && cont[id][4]==0&& cont[id][5]==0&&cont[id][6]==0 && cont[id][7]==0 && cont[id][8]==0 && cont[id][9]==0&& cont[id][10]==0&&cont[id][11]==0){
+            status=0;
+        }else{
+            status=1;
+        }
+        TextEdit->setText(QString("位置:%1").arg((int) cont[id][0]));
         auto cur_text_color = TextEdit->textColor();
-        if(0==0){
+        //判断温度参数是否异常
+        if(cont[id][1]==0 && cont[id][2]==0 && cont[id][3]==0 && status==1){
             // 设置当前行要使用的颜色，假设为红色
             TextEdit->setTextColor(Qt::red);
-            TextEdit->showContent(QString("温度(C):%2,%3,%4").arg((int) cont[id][1]).arg((int) cont[id][2]).arg((int) cont[id][3]));
+            TextEdit->append(QString("温度(C):%1,%2,%3").arg(QString::number((cont[id][1]),'f',2)).arg(QString::number((cont[id][2]),'f',2)).arg(QString::number((cont[id][3]),'f',2)));
+        }else{
+            TextEdit->append(QString("温度(C):%1,%2,%3").arg(QString::number((cont[id][1]),'f',2)).arg(QString::number((cont[id][2]),'f',2)).arg(QString::number((cont[id][3]),'f',2)));
         }
         // 最后恢复原来的颜色
         TextEdit->setTextColor(cur_text_color);
 
-        TextEdit->showContent(QString("电压(V):%5,%6,%7").arg((int) cont[id][4]).arg((int) cont[id][5]).arg((int) cont[id][6]));
-        TextEdit->showContent(QString("电流(A):%8,%9,%10").arg((int) cont[id][7]).arg((int) cont[id][8]).arg((int) cont[id][9]));
-        TextEdit->showContent(QString("漏电电流(A):%11").arg((int) cont[id][10]));
-        TextEdit->showContent(QString("绝缘信号:%12").arg((int) cont[id][11]));
+        //判断电压参数是否异常
+        if(cont[id][4]==0 && cont[id][5]==0 && cont[id][6]==0 && status==1){
+            // 设置当前行要使用的颜色，假设为红色
+            TextEdit->setTextColor(Qt::red);
+            TextEdit->append(QString("电压(V):%1,%2,%3").arg(QString::number((cont[id][4]),'f',2)).arg(QString::number((cont[id][5]),'f',2)).arg(QString::number((cont[id][6]),'f',2)));
+        }else{
+            TextEdit->append(QString("电压(V):%1,%2,%3").arg(QString::number((cont[id][4]),'f',2)).arg(QString::number((cont[id][5]),'f',2)).arg(QString::number((cont[id][6]),'f',2)));
+        }
+        // 最后恢复原来的颜色
+        TextEdit->setTextColor(cur_text_color);
+
+        //判断电流参数是否异常
+        if(cont[id][4]==0 && cont[id][5]==0 && cont[id][6]==0 && status==1){
+            // 设置当前行要使用的颜色，假设为红色
+            TextEdit->setTextColor(Qt::red);
+            TextEdit->append(QString("电流(A):%1,%2,%3").arg(QString::number((cont[id][7]),'f',3)).arg(QString::number((cont[id][8]),'f',3)).arg(QString::number((cont[id][9]),'f',3)));
+        }else{
+            TextEdit->append(QString("电流(A):%1,%2,%3").arg(QString::number((cont[id][7]),'f',3)).arg(QString::number((cont[id][8]),'f',3)).arg(QString::number((cont[id][9]),'f',3)));
+        }
+        // 最后恢复原来的颜色
+        TextEdit->setTextColor(cur_text_color);
+
+        //判断漏电电流参数是否异常
+        if(cont[id][10]==0 && status==1){
+        // 设置当前行要使用的颜色，假设为红色
+            TextEdit->setTextColor(Qt::red);
+            TextEdit->append(QString("漏电电流(A):%1").arg(QString::number((cont[id][10]),'f',3)));
+        }else{
+            TextEdit->append(QString("漏电电流(A):%1").arg(QString::number((cont[id][10]),'f',3)));
+        }
+        // 最后恢复原来的颜色
+        TextEdit->setTextColor(cur_text_color);
+
+        //判断绝缘信号参数是否异常
+        if(cont[id][11]==0 && status==1){
+        // 设置当前行要使用的颜色，假设为红色
+            TextEdit->setTextColor(Qt::red);
+            TextEdit->append(QString("绝缘信号:%1").arg(QString::number((cont[id][11]),'f',2)));
+        }else{
+            TextEdit->append(QString("绝缘信号:%1").arg(QString::number((cont[id][1]),'f',2)));
+        }
+        // 最后恢复原来的颜色
+        TextEdit->setTextColor(cur_text_color);
 
 
 //        TextEdit->setText(QString("位置:%1\n温度(C):%2,%3,%4\n电压(V):%5,%6,%7\n电流(A):%8,%9,%10\n漏电电流(A)%11\n绝缘信号:%12").arg((int) cont[id][0])\
@@ -446,7 +460,7 @@ void MainWindow::updata_content(){
 //        TextEdit->setTextColor(cur_text_color);
         QPalette pal = TextEdit->palette();
 
-        if(cont[id][11]==0 && cont[id][1]==0 && cont[id][2]==0 && cont[id][3]==0&& cont[id][4]==0){
+        if(status==0){
             pal.setBrush(QPalette::Base, Qt::red);
         }else{
             pal.setBrush(QPalette::Base, Qt::white);

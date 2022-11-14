@@ -31,8 +31,8 @@ public:
     void init();
     void updata_content();
 
-    const int maxnum=15;
-    int colnum=5;
+    const int maxnum=6;
+    int colnum=3;
     //Vector: maxnum:地址个数->读取数据的个数
     QVector<QVector<float> >cont=QVector<QVector<float>> (maxnum,QVector<float> (12,0));
     void Initserial();
